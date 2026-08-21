@@ -6,6 +6,7 @@
 <title>Cohort 10 Registration — PSP Analytics Tech Bootcamp</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --purple-deep:#3E0F72;
@@ -430,9 +431,6 @@
       </div>
     </div>
 
-    <input type="hidden" name="_subject" value="New Cohort 10 Registration — PSP Analytics">
-    <input type="text" name="_gotcha" style="display:none">
-
     <button type="submit" id="submitBtn">Submit Registration</button>
     <div class="form-msg" id="formMsg"></div>
   </form>
@@ -449,121 +447,80 @@
 </footer>
 
 <script>
-  // ---- FORMSPREE ENDPOINT: replace with your own form ID from formspree.io ----
-  const FORMSPREE_ENDPOINT = "https://formspree.io/f/YOUR_FORM_ID";
+  // ---- SUPABASE CONFIG ----
+const SUPABASE_URL = "https://liqiqjvhmiihhizmbimb.supabase.co"; // from Project Settings > API
+const SUPABASE_ANON_KEY = "sb_publishable_HJEcC7gh--ozUPM434cykA_GxYytPrd"; // from Project Settings > API
 
-  const feeMap = { NGN: 70000, USD: 50 };
-  const symbolMap = { NGN: "₦", USD: "$" };
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const form = document.getElementById('regForm');
-  const currencyEl = document.getElementById('currency');
-  const amountPaidEl = document.getElementById('amountPaid');
-  const amountRemainingEl = document.getElementById('amountRemaining');
-  const sumTotal = document.getElementById('sumTotal');
-  const sumPaid = document.getElementById('sumPaid');
-  const sumBalance = document.getElementById('sumBalance');
-  const payFull = document.getElementById('payFull');
-  const payInstall = document.getElementById('payInstall');
-  const whyEl = document.getElementById('why');
-  const whyCount = document.getElementById('whyCount');
-  const fullNameEl = document.getElementById('fullName');
-  const decName = document.getElementById('decName');
-  const decPaid = document.getElementById('decPaid');
-  const decRemaining = document.getElementById('decRemaining');
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  formMsg.textContent = '';
+  formMsg.classList.remove('error');
 
-  function fmt(cur, val){
-    const sym = symbolMap[cur];
-    const n = isNaN(val) ? 0 : val;
-    return sym + n.toLocaleString(undefined, {minimumFractionDigits: cur === 'USD' ? 2 : 0, maximumFractionDigits: 2});
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
   }
 
-  function recalc(){
-    const cur = currencyEl.value;
-    const total = feeMap[cur];
-    let paid = parseFloat(amountPaidEl.value) || 0;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Submitting...';
 
-    if(payFull.checked){
-      paid = total;
-      amountPaidEl.value = total;
-      amountPaidEl.readOnly = true;
-    } else {
-      amountPaidEl.readOnly = false;
-    }
+  try {
+    // 1. Upload the receipt file to Storage
+    const fileInput = document.getElementById('proof');
+    const file = fileInput.files[0];
+    const filePath = `${Date.now()}_${file.name}`;
 
-    if(paid > total) paid = total;
-    const remaining = Math.max(total - paid, 0);
+    const { error: uploadError } = await supabaseClient.storage
+      .from('receipts')
+      .upload(filePath, file);
 
-    amountRemainingEl.value = fmt(cur, remaining);
-    sumTotal.textContent = fmt(cur, total);
-    sumPaid.textContent = fmt(cur, paid);
-    sumBalance.textContent = fmt(cur, remaining);
+    if (uploadError) throw uploadError;
 
-    decPaid.textContent = fmt(cur, paid);
-    decRemaining.textContent = fmt(cur, remaining);
+    // 2. Get the public URL for that file
+    const { data: urlData } = supabaseClient.storage
+      .from('receipts')
+      .getPublicUrl(filePath);
+    const receiptUrl = urlData.publicUrl;
+
+    // 3. Insert the registration row
+    const { error: insertError } = await supabaseClient
+      .from('registrations')
+      .insert([{
+        full_name: fullNameEl.value,
+        email: document.getElementById('email').value,
+        whatsapp: document.getElementById('whatsapp').value,
+        state: document.getElementById('state').value,
+        track: form.querySelector('input[name="Learning Track"]:checked')?.value,
+        level: document.getElementById('level').value,
+        weekly_commitment: form.querySelector('input[name="8hrs Weekly Commitment"]:checked')?.value,
+        channel: document.getElementById('channel').value,
+        reason: whyEl.value,
+        snacks: document.getElementById('snacks').value,
+        expectations: document.getElementById('expect').value,
+        notes: document.getElementById('other').value,
+        payment_plan: form.querySelector('input[name="Payment Plan"]:checked')?.value,
+        currency: currencyEl.value,
+        amount_paid: parseFloat(amountPaidEl.value) || 0,
+        agreed: document.getElementById('agree').checked,
+        receipt_url: receiptUrl
+      }]);
+
+    if (insertError) throw insertError;
+
+    form.style.display = 'none';
+    document.getElementById('successScreen').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  } catch (err) {
+    console.error(err);
+    formMsg.textContent = 'Something went wrong. Please try again or contact us directly.';
+    formMsg.classList.add('error');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Registration';
   }
-
-  currencyEl.addEventListener('change', recalc);
-  amountPaidEl.addEventListener('input', recalc);
-  payFull.addEventListener('change', recalc);
-  payInstall.addEventListener('change', recalc);
-  recalc();
-
-  whyEl.addEventListener('input', () => {
-    const len = whyEl.value.length;
-    whyCount.textContent = `${len} / 100`;
-    whyCount.classList.toggle('over', len >= 100);
-  });
-
-  fullNameEl.addEventListener('input', () => {
-    decName.textContent = fullNameEl.value.trim() || "[Participant's Full Name]";
-  });
-
-  const submitBtn = document.getElementById('submitBtn');
-  const formMsg = document.getElementById('formMsg');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    formMsg.textContent = '';
-    formMsg.classList.remove('error');
-
-    if(!form.checkValidity()){
-      form.reportValidity();
-      return;
-    }
-    if(FORMSPREE_ENDPOINT.includes('YOUR_FORM_ID')){
-      formMsg.textContent = 'Form not yet connected — the site owner needs to add their Formspree endpoint.';
-      formMsg.classList.add('error');
-      return;
-    }
-
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Submitting...';
-
-    try{
-      const data = new FormData(form);
-      const res = await fetch(FORMSPREE_ENDPOINT, {
-        method: 'POST',
-        body: data,
-        headers: { 'Accept': 'application/json' }
-      });
-      if(res.ok){
-        form.style.display = 'none';
-        document.getElementById('successScreen').style.display = 'block';
-        window.scrollTo({top:0, behavior:'smooth'});
-      } else {
-        const resData = await res.json().catch(()=>({}));
-        formMsg.textContent = (resData.errors ? resData.errors.map(e=>e.message).join(', ') : 'Something went wrong. Please try again.');
-        formMsg.classList.add('error');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit Registration';
-      }
-    } catch(err){
-      formMsg.textContent = 'Network error — please check your connection and try again.';
-      formMsg.classList.add('error');
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Submit Registration';
-    }
-  });
+});
 </script>
 </body>
 </html>
