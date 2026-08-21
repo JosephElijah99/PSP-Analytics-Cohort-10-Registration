@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cohort 10 — Registrations Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --purple-deep:#3E0F72;
+    --purple:#7C2FCE;
+    --purple-soft:#EFE3FB;
+    --gold:#F0AE00;
+    --ink:#1C1130;
+    --paper:#FBF9FF;
+    --panel:#FFFFFF;
+    --line:#E4D9F5;
+    --error:#C0392B;
+    --green:#1E8E5A;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:'Inter',sans-serif; background:var(--paper); color:var(--ink);
+    padding:0 0 60px;
+  }
+  header{
+    background:linear-gradient(135deg, var(--purple-deep), var(--purple));
+    color:#fff; padding:26px 24px;
+  }
+  header h1{font-family:'Poppins',sans-serif; margin:0 0 4px; font-size:22px;}
+  header p{margin:0; opacity:.85; font-size:13.5px;}
+
+  main{max-width:1200px; margin:0 auto; padding:22px 20px;}
+
+  .gate{
+    max-width:380px; margin:80px auto; background:#fff; border:1px solid var(--line);
+    border-radius:14px; padding:30px; text-align:center; box-shadow:0 14px 30px -22px rgba(60,10,110,.35);
+  }
+  .gate h2{font-family:'Poppins',sans-serif; color:var(--purple-deep); margin-top:0;}
+  .gate input{
+    width:100%; padding:11px 13px; border-radius:10px; border:1.5px solid var(--line);
+    font-size:14.5px; margin:14px 0;
+  }
+  .gate button{
+    width:100%; padding:12px; border:none; border-radius:10px; cursor:pointer;
+    background:linear-gradient(120deg,var(--purple),var(--purple-deep)); color:#fff;
+    font-weight:700; font-family:'Poppins',sans-serif;
+  }
+  .gate .err{color:var(--error); font-size:13px; min-height:18px;}
+
+  .toolbar{
+    display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:18px;
+  }
+  .toolbar input, .toolbar select{
+    padding:9px 12px; border-radius:9px; border:1.5px solid var(--line); font-size:13.5px;
+    font-family:'Inter',sans-serif;
+  }
+  .toolbar button{
+    padding:9px 16px; border-radius:9px; border:none; cursor:pointer;
+    background:var(--purple); color:#fff; font-weight:600; font-size:13.5px;
+  }
+  .stats{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px;}
+  .stat{
+    background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 18px; min-width:150px;
+  }
+  .stat .n{font-family:'Poppins',sans-serif; font-size:22px; font-weight:800; color:var(--purple-deep);}
+  .stat .l{font-size:12px; color:#7C7188; text-transform:uppercase; letter-spacing:.05em;}
+
+  table{width:100%; border-collapse:collapse; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 14px 30px -22px rgba(60,10,110,.25);}
+  th, td{padding:11px 13px; text-align:left; font-size:13px; border-bottom:1px solid var(--line);}
+  th{background:var(--purple-soft); color:var(--purple-deep); font-weight:700; position:sticky; top:0;}
+  tr:hover{background:#FBF7FF;}
+  .balance-clear{color:var(--green); font-weight:700;}
+  .balance-due{color:var(--error); font-weight:700;}
+  .track-pill{
+    display:inline-block; padding:3px 9px; border-radius:999px; font-size:11.5px; font-weight:700;
+    background:var(--purple-soft); color:var(--purple-deep);
+  }
+  a.receipt-link{color:var(--purple); font-weight:600; text-decoration:none;}
+  a.receipt-link:hover{text-decoration:underline;}
+  .empty, .loading{text-align:center; padding:60px 20px; color:#8A7E99;}
+  .error-banner{
+    background:#FBEAEA; border:1px solid #E0B0B0; color:var(--error); padding:12px 16px;
+    border-radius:10px; margin-bottom:16px; font-size:13.5px;
+  }
+
+  @media(max-width:800px){
+    table, thead, tbody, th, td, tr{display:block;}
+    thead{display:none;}
+    tr{margin-bottom:14px; border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+    td{border-bottom:none; display:flex; justify-content:space-between; gap:10px;}
+    td::before{content:attr(data-label); font-weight:700; color:#7C7188; margin-right:10px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="gateScreen" class="gate">
+  <h2>Admin Access</h2>
+  <p style="font-size:13px;color:#7C7188;">Enter the admin passcode to view registrations.</p>
+  <input type="password" id="passcodeInput" placeholder="Passcode">
+  <button id="gateBtn">Enter</button>
+  <div class="err" id="gateErr"></div>
+</div>
+
+<div id="dashboard" style="display:none;">
+  <header>
+    <h1>Cohort 10 Registrations</h1>
+    <p>PSP Analytics Tech Bootcamp — live view from Supabase</p>
+  </header>
+
+  <main>
+    <div id="errorBanner" class="error-banner" style="display:none;"></div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="toolbar">
+      <input type="text" id="searchBox" placeholder="Search name, email, or WhatsApp...">
+      <select id="trackFilter">
+        <option value="">All Tracks</option>
+        <option value="Package 1: Data Analytics">Data Analytics</option>
+        <option value="Package 2: Data Science (ML & AI)">Data Science (ML & AI)</option>
+        <option value="Package 3: Software Development">Software Development</option>
+        <option value="Package 4: Data Engineering">Data Engineering</option>
+      </select>
+      <select id="balanceFilter">
+        <option value="">All Payment Status</option>
+        <option value="cleared">Fully Paid</option>
+        <option value="due">Balance Due</option>
+      </select>
+      <button id="refreshBtn">Refresh</button>
+      <button id="exportBtn">Export CSV</button>
+    </div>
+
+    <div id="tableWrap">
+      <div class="loading">Loading registrations...</div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // ---- SUPABASE CONFIG ----
+  const SUPABASE_URL = "https://liqiqjvhmiihhizmbimb.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_HJEcC7gh--ozUPM434cykA_GxYytPrd";
+
+  // Simple client-side passcode gate.
+  // NOTE: this only deters casual visitors — it is NOT real security, since
+  // the password check happens in the browser. Real protection requires
+  // restricting the 'registrations' SELECT policy in Supabase to logged-in
+  // admin users via Supabase Auth. Fine for a low-stakes internal view;
+  // upgrade later if this data becomes sensitive.
+  const ADMIN_PASSCODE = "psp-cohort10-admin";
+
+  let supabaseClient = null;
+  try {
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } catch (err) {
+    console.error('Supabase failed to initialize:', err);
+  }
+
+  const feeMap = { NGN: 70000, USD: 50 };
+  const symbolMap = { NGN: "₦", USD: "$" };
+  function fmt(cur, val) {
+    const sym = symbolMap[cur] || '';
+    const n = isNaN(val) ? 0 : val;
+    return sym + n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+
+  let allRows = [];
+
+  // ---- Passcode gate ----
+  const gateScreen = document.getElementById('gateScreen');
+  const dashboard = document.getElementById('dashboard');
+  const passcodeInput = document.getElementById('passcodeInput');
+  const gateBtn = document.getElementById('gateBtn');
+  const gateErr = document.getElementById('gateErr');
+
+  function tryUnlock() {
+    if (passcodeInput.value === ADMIN_PASSCODE) {
+      gateScreen.style.display = 'none';
+      dashboard.style.display = 'block';
+      loadData();
+    } else {
+      gateErr.textContent = 'Incorrect passcode.';
+    }
+  }
+  gateBtn.addEventListener('click', tryUnlock);
+  passcodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
+
+  // ---- Data loading ----
+  const tableWrap = document.getElementById('tableWrap');
+  const statsEl = document.getElementById('stats');
+  const errorBanner = document.getElementById('errorBanner');
+  const searchBox = document.getElementById('searchBox');
+  const trackFilter = document.getElementById('trackFilter');
+  const balanceFilter = document.getElementById('balanceFilter');
+
+  async function loadData() {
+    tableWrap.innerHTML = '<div class="loading">Loading registrations...</div>';
+    errorBanner.style.display = 'none';
+
+    if (!supabaseClient) {
+      errorBanner.textContent = 'Supabase is not configured correctly.';
+      errorBanner.style.display = 'block';
+      tableWrap.innerHTML = '';
+      return;
+    }
+
+    const { data, error } = await supabaseClient
+      .from('registrations')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      errorBanner.textContent = 'Could not load data: ' + error.message +
+        '. Make sure a SELECT policy for role "anon" exists on the registrations table.';
+      errorBanner.style.display = 'block';
+      tableWrap.innerHTML = '';
+      return;
+    }
+
+    allRows = data || [];
+    renderStats();
+    renderTable();
+  }
+
+  function renderStats() {
+    const total = allRows.length;
+    const cleared = allRows.filter(r => balanceOf(r) <= 0).length;
+    const due = total - cleared;
+    const totalCollected = allRows.reduce((sum, r) => {
+      // Rough combined total assuming NGN; good enough as a headline stat
+      return sum + (r.currency === 'NGN' ? (r.amount_paid || 0) : 0);
+    }, 0);
+
+    statsEl.innerHTML = `
+      <div class="stat"><div class="n">${total}</div><div class="l">Total Registrations</div></div>
+      <div class="stat"><div class="n">${cleared}</div><div class="l">Fully Paid</div></div>
+      <div class="stat"><div class="n">${due}</div><div class="l">Balance Due</div></div>
+      <div class="stat"><div class="n">${fmt('NGN', totalCollected)}</div><div class="l">₦ Collected So Far</div></div>
+    `;
+  }
+
+  function balanceOf(r) {
+    const total = feeMap[r.currency] ?? feeMap.NGN;
+    const paid = r.amount_paid || 0;
+    return Math.max(total - paid, 0);
+  }
+
+  function trackLabel(t) {
+    if (!t) return '—';
+    return t.replace(/^Package \d+:\s*/, '');
+  }
+
+  function renderTable() {
+    const search = searchBox.value.trim().toLowerCase();
+    const trackVal = trackFilter.value;
+    const balVal = balanceFilter.value;
+
+    const rows = allRows.filter(r => {
+      if (search) {
+        const hay = `${r.full_name || ''} ${r.email || ''} ${r.whatsapp || ''}`.toLowerCase();
+        if (!hay.includes(search)) return false;
+      }
+      if (trackVal && r.track !== trackVal) return false;
+      if (balVal === 'cleared' && balanceOf(r) > 0) return false;
+      if (balVal === 'due' && balanceOf(r) <= 0) return false;
+      return true;
+    });
+
+    if (rows.length === 0) {
+      tableWrap.innerHTML = '<div class="empty">No registrations match this view yet.</div>';
+      return;
+    }
+
+    const body = rows.map(r => {
+      const bal = balanceOf(r);
+      const balClass = bal <= 0 ? 'balance-clear' : 'balance-due';
+      const balText = bal <= 0 ? 'Cleared' : fmt(r.currency, bal) + ' due';
+      const created = r.created_at ? new Date(r.created_at).toLocaleString() : '—';
+      return `
+        <tr>
+          <td data-label="Name">${escapeHtml(r.full_name)}</td>
+          <td data-label="Email">${escapeHtml(r.email)}</td>
+          <td data-label="WhatsApp">${escapeHtml(r.whatsapp)}</td>
+          <td data-label="Track"><span class="track-pill">${escapeHtml(trackLabel(r.track))}</span></td>
+          <td data-label="Channel">${escapeHtml(r.channel)}</td>
+          <td data-label="Paid">${fmt(r.currency, r.amount_paid)}</td>
+          <td data-label="Balance"><span class="${balClass}">${balText}</span></td>
+          <td data-label="Receipt">${r.receipt_url ? `<a class="receipt-link" href="${r.receipt_url}" target="_blank" rel="noopener">View</a>` : '—'}</td>
+          <td data-label="Submitted">${created}</td>
+        </tr>
+      `;
+    }).join('');
+
+    tableWrap.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th><th>Email</th><th>WhatsApp</th><th>Track</th><th>Channel</th>
+            <th>Paid</th><th>Balance</th><th>Receipt</th><th>Submitted</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+    `;
+  }
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '—';
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  searchBox.addEventListener('input', renderTable);
+  trackFilter.addEventListener('change', renderTable);
+  balanceFilter.addEventListener('change', renderTable);
+  document.getElementById('refreshBtn').addEventListener('click', loadData);
+
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    if (!allRows.length) return;
+    const headers = ['Full Name','Email','WhatsApp','State','Track','Level','Channel','Payment Plan','Currency','Amount Paid','Balance','Receipt URL','Submitted'];
+    const csvRows = allRows.map(r => [
+      r.full_name, r.email, r.whatsapp, r.state, trackLabel(r.track), r.level, r.channel,
+      r.payment_plan, r.currency, r.amount_paid, balanceOf(r), r.receipt_url, r.created_at
+    ].map(v => `"${(v ?? '').toString().replace(/"/g, '""')}"`).join(','));
+    const csv = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `cohort10-registrations-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  });
+</script>
+</body>
+</html>
