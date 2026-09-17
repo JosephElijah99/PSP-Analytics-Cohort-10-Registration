@@ -360,7 +360,7 @@
       <div class="fee-panel">
         <div>
           <div class="fee-label">Course Fee (Discounted)</div>
-          <div class="fee-amt"><span class="fee-old">₦100,000</span>₦70,000 <small>or $50</small></div>
+          <div class="fee-amt"><span class="fee-old">₦200,000</span>₦150,000 <small>or $115</small></div>
         </div>
         <div style="font-size:12.5px; opacity:.9; max-width:220px; text-align:right;">On-site, Virtual &amp; Hybrid classes available.</div>
       </div>
@@ -377,8 +377,8 @@
       <div class="field">
         <label for="currency">Currency<span class="req">*</span></label>
         <select id="currency" name="Currency" required>
-          <option value="NGN" selected>₦ Naira (₦70,000)</option>
-          <option value="USD">$ US Dollar ($50)</option>
+          <option value="NGN" selected>₦ Naira (₦150,000)</option>
+          <option value="USD">$ US Dollar ($115)</option>
         </select>
       </div>
 
@@ -394,9 +394,9 @@
       </div>
 
       <div class="summary-box">
-        <div>Total Fee<b id="sumTotal">₦70,000</b></div>
+        <div>Total Fee<b id="sumTotal">₦150,000</b></div>
         <div>Paid Now<b id="sumPaid">₦0</b></div>
-        <div>Balance Due<b id="sumBalance">₦70,000</b></div>
+        <div>Balance Due<b id="sumBalance">₦150,000</b></div>
       </div>
 
       <div class="field" style="margin-top:20px;">
@@ -462,7 +462,7 @@
     console.error('Supabase failed to initialize:', err);
   }
 
-  const feeMap = { NGN: 70000, USD: 50 };
+  const feeMap = { NGN: 150000, USD: 115 };
   const symbolMap = { NGN: "₦", USD: "$" };
 
   const form = document.getElementById('regForm');
